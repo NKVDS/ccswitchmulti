@@ -3321,13 +3321,13 @@ fn apply_codex_multi_agent_transport_policy(catalog: &mut Value, settings: &Valu
     }
 }
 
-/// 移除会覆盖逐模型目录元数据的 MultiRouter 顶层字段。
+/// 移除会覆盖逐模型目录元数据的 MultiRouter 全局窗口字段。
 ///
 /// 这只用于 CCSwitchMulti 托管的多模型路由。普通单模型 provider 仍可使用用户手写的
-/// 顶层覆盖；不能把窗口改成最大值，否则长窗口切短窗口时会失去官方的预压缩保护。
+/// 顶层窗口覆盖；不能把窗口改成最大值，否则长窗口切短窗口时会失去官方的预压缩保护。
+/// 全局自动压缩阈值则保留，供用户显式统一配置 MultiRouter 的压缩触发点。
 fn remove_multi_router_context_overrides(doc: &mut DocumentMut) {
     doc.as_table_mut().remove("model_context_window");
-    doc.as_table_mut().remove("model_auto_compact_token_limit");
 }
 
 /// 判断已解析的 Codex TOML 是否实际指向 CCSwitchMulti 的多模型路由 provider。
@@ -12762,9 +12762,12 @@ experimental_bearer_token = "provider-token"
             parsed.get("model_context_window").is_none(),
             "MultiRouter must not retain a global window that overrides every routed model"
         );
-        assert!(
-            parsed.get("model_auto_compact_token_limit").is_none(),
-            "MultiRouter must not retain a fixed compaction threshold across differently sized models"
+        assert_eq!(
+            parsed
+                .get("model_auto_compact_token_limit")
+                .and_then(|value| value.as_integer()),
+            Some(240_000),
+            "MultiRouter must preserve the explicitly configured global compaction threshold"
         );
         assert!(
             parsed.get("experimental_bearer_token").is_none(),
@@ -17563,11 +17566,12 @@ base_url = "http://127.0.0.1:15721/v1"
             prepared_toml.get("model_context_window").is_none(),
             "MultiRouter must expose each catalog model window instead of one global override"
         );
-        assert!(
+        assert_eq!(
             prepared_toml
                 .get("model_auto_compact_token_limit")
-                .is_none(),
-            "a fixed compact limit would mask the selected model's own budget"
+                .and_then(|value| value.as_integer()),
+            Some(96_000),
+            "MultiRouter should retain the explicit global compaction threshold"
         );
         let provider_models = prepared_toml
             .get("model_providers")

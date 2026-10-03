@@ -410,7 +410,7 @@ pub async fn check_app_update(app: AppHandle) -> Result<Option<AppUpdateInfo>, S
 /// 获取 app_config_dir 覆盖配置 (从 Store)
 #[tauri::command]
 pub async fn get_app_config_dir_override(app: AppHandle) -> Result<Option<String>, String> {
-    Ok(crate::app_store::refresh_app_config_dir_override(&app)
+    Ok(crate::app_store::get_stored_app_config_dir_override(&app)
         .map(|p| p.to_string_lossy().to_string()))
 }
 

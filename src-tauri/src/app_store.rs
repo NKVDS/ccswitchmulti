@@ -70,6 +70,13 @@ pub fn refresh_app_config_dir_override(app: &tauri::AppHandle) -> Option<PathBuf
     value
 }
 
+/// Read the persisted directory override without changing the path used by this process.
+/// The active override is refreshed only during startup because the Database connection
+/// and other runtime services are already bound to that directory.
+pub fn get_stored_app_config_dir_override(app: &tauri::AppHandle) -> Option<PathBuf> {
+    read_override_from_store(app)
+}
+
 /// 写入 app_config_dir 到 Tauri Store
 pub fn set_app_config_dir_to_store(
     app: &tauri::AppHandle,
@@ -101,7 +108,7 @@ pub fn set_app_config_dir_to_store(
         .save()
         .map_err(|e| AppError::Message(format!("保存 Store 失败: {e}")))?;
 
-    refresh_app_config_dir_override(app);
+    log::info!("app_config_dir override saved; it will take effect after restart");
     Ok(())
 }
 
@@ -125,11 +132,9 @@ fn resolve_path(raw: &str) -> PathBuf {
 }
 
 /// 从旧的 settings.json 迁移 app_config_dir 到 Store
-pub fn migrate_app_config_dir_from_settings(app: &tauri::AppHandle) -> Result<(), AppError> {
+pub fn migrate_app_config_dir_from_settings(_app: &tauri::AppHandle) -> Result<(), AppError> {
     // app_config_dir 已从 settings.json 移除，此函数保留但不再执行迁移
-    // 如果用户在旧版本设置过 app_config_dir，需要在 Store 中手动配置
-    log::info!("app_config_dir 迁移功能已移除，请在设置中重新配置");
-
-    let _ = refresh_app_config_dir_override(app);
+    // 启动时已在打开数据库前加载 Store；不要在此处再次刷新运行时路径。
+    log::debug!("app_config_dir migration is disabled; startup path remains active");
     Ok(())
 }
